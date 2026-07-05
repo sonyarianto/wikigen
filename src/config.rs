@@ -26,7 +26,7 @@ pub fn init_config() -> Result<(), Box<dyn std::error::Error>> {
 
     let provider = dialoguer::Select::new()
         .with_prompt("Select LLM provider")
-        .items(&[
+        .items([
             "OpenAI",
             "Anthropic",
             "DeepSeek",
