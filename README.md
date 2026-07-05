@@ -1,6 +1,8 @@
-# codewiki
+# CodeWiki
 
 A CLI that writes and maintains agent documentation for your codebase. Built in Rust.
+
+Inspired by [OpenWiki](https://github.com/langchain-ai/openwiki).
 
 ## Features
 
