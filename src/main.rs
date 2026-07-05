@@ -10,6 +10,7 @@ mod scanner;
 #[derive(Parser)]
 #[command(
     name = "wakawiki",
+    version = env!("CARGO_PKG_VERSION"),
     about = "A CLI that writes and maintains agent documentation for your codebase"
 )]
 struct Cli {
