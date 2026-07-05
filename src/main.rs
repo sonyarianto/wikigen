@@ -48,17 +48,10 @@ async fn main() {
         return;
     }
 
-    let cfg = config::load_config().unwrap_or_else(|e| {
-        eprintln!("Error loading config: {e}");
-        eprintln!("Run 'wakawiki --init' first to configure.");
-        std::process::exit(1);
-    });
-
     let project_dir = std::env::current_dir().unwrap_or_else(|e| {
         eprintln!("Error getting current directory: {e}");
         std::process::exit(1);
     });
-    let wakawiki_dir = project_dir.join("wakawiki");
 
     if cli.scan {
         if let Err(e) = scan::run(&project_dir) {
@@ -67,6 +60,14 @@ async fn main() {
         }
         return;
     }
+
+    let cfg = config::load_config().unwrap_or_else(|e| {
+        eprintln!("Error loading config: {e}");
+        eprintln!("Run 'wakawiki --init' first to configure.");
+        std::process::exit(1);
+    });
+
+    let wakawiki_dir = project_dir.join("wakawiki");
 
     if cli.update && wakawiki_dir.exists() {
         let mut wiki_meta = output::load_wiki_meta(&wakawiki_dir);
