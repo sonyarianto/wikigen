@@ -209,20 +209,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "codewiki"
-version = "0.1.0"
-dependencies = [
- "clap",
- "dialoguer",
- "dirs",
- "ignore",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
-]
-
-[[package]]
 name = "colorchoice"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1766,6 +1752,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d46a5a140e6f7afeccd8eae97eff335163939eac8b929834875168b29b3d267"
 dependencies = [
  "rustls-pki-types",
+]
+
+[[package]]
+name = "wikigen"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "dialoguer",
+ "dirs",
+ "ignore",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

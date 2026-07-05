@@ -1,4 +1,4 @@
-# CodeWiki
+# WikiGen
 
 A CLI that writes and maintains agent documentation for your codebase. Built in Rust.
 
@@ -16,14 +16,14 @@ Inspired by [OpenWiki](https://github.com/langchain-ai/openwiki).
 ## Install
 
 ```bash
-cargo install --git https://github.com/sonyarianto/codewiki.git
+cargo install --git https://github.com/sonyarianto/wikigen.git
 ```
 
 Or build from source:
 
 ```bash
-git clone https://github.com/sonyarianto/codewiki.git
-cd codewiki
+git clone https://github.com/sonyarianto/wikigen.git
+cd wikigen
 cargo build --release
 ```
 
@@ -31,27 +31,27 @@ cargo build --release
 
 ```bash
 # Configure your LLM provider
-codewiki --init
+wikigen --init
 
 # Generate documentation (interactive)
-codewiki
+wikigen
 
 # One-shot non-interactive
-codewiki -p "Summarize the architecture of this project"
+wikigen -p "Summarize the architecture of this project"
 
 # Update existing documentation
-codewiki --update
+wikigen --update
 ```
 
 ## Usage
 
 ```
-codewiki [OPTIONS] [PROMPT]
+wikigen [OPTIONS] [PROMPT]
 
 Options:
       --init     Configure provider, API key, and model
   -p, --print    Non-interactive one-shot mode
-      --update   Refresh existing codewiki/ docs
+      --update   Refresh existing wikigen/ docs
   -h, --help     Show help
 ```
 
@@ -68,31 +68,31 @@ Options:
 
 ### opencode provider
 
-If you already use [opencode](https://github.com/anomalyco/opencode), you can run codewiki with zero API keys:
+If you already use [opencode](https://github.com/anomalyco/opencode), you can run wikigen with zero API keys:
 
 ```bash
-codewiki --init    # select "opencode"
-codewiki           # uses your existing opencode setup
+wikigen --init    # select "opencode"
+wikigen           # uses your existing opencode setup
 ```
 
 ## Output
 
 ```
-codewiki/
+wikigen/
 ├── index.md            # Project overview
 ├── architecture.md     # High-level architecture
 ├── ...                 # Additional module docs
-└── .codewiki.json      # Metadata for incremental updates
+└── .wikigen.json      # Metadata for incremental updates
 ```
 
-An `AGENTS.md` file is created (or appended) with a reference block pointing agents to `codewiki/`.
+An `AGENTS.md` file is created (or appended) with a reference block pointing agents to `wikigen/`.
 
 ## GitHub Action
 
 Add this workflow to auto-update docs daily via PR:
 
 ```yaml
-name: codewiki update
+name: wikigen update
 on:
   schedule:
     - cron: '0 0 * * *'
@@ -104,27 +104,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo install --git https://github.com/sonyarianto/codewiki.git
-      - run: codewiki --update
+      - run: cargo install --git https://github.com/sonyarianto/wikigen.git
+      - run: wikigen --update
         env:
-          CODWIKI_PROVIDER: ${{ secrets.CODWIKI_PROVIDER }}
-          CODWIKI_API_KEY: ${{ secrets.CODWIKI_API_KEY }}
-          CODWIKI_MODEL: ${{ secrets.CODWIKI_MODEL }}
+          WIKIGEN_PROVIDER: ${{ secrets.WIKIGEN_PROVIDER }}
+          WIKIGEN_API_KEY: ${{ secrets.WIKIGEN_API_KEY }}
+          WIKIGEN_MODEL: ${{ secrets.WIKIGEN_MODEL }}
       - uses: peter-evans/create-pull-request@v6
         with:
-          title: 'docs: update codewiki documentation'
-          branch: codewiki-update
+          title: 'docs: update wikigen documentation'
+          branch: wikigen-update
 ```
 
 ## Configuration
 
-Config is stored in `~/.codewiki/.env`:
+Config is stored in `~/.wikigen/.env`:
 
 ```
-CODWIKI_PROVIDER=openai
-CODWIKI_API_KEY=sk-...
-CODWIKI_MODEL=gpt-4o
-CODWIKI_BASE_URL=https://api.openai.com/v1
+WIKIGEN_PROVIDER=openai
+WIKIGEN_API_KEY=sk-...
+WIKIGEN_MODEL=gpt-4o
+WIKIGEN_BASE_URL=https://api.openai.com/v1
 ```
 
 You can also set these as environment variables directly.

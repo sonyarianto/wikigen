@@ -9,11 +9,11 @@ mod scanner;
 
 #[derive(Parser)]
 #[command(
-    name = "codewiki",
+    name = "wikigen",
     about = "A CLI that writes and maintains agent documentation for your codebase"
 )]
 struct Cli {
-    /// Initialize codewiki: configure provider, API key, and model
+    /// Initialize wikigen: configure provider, API key, and model
     #[arg(long)]
     init: bool,
 
@@ -38,13 +38,13 @@ async fn main() {
             eprintln!("Error during initialization: {e}");
             std::process::exit(1);
         }
-        println!("Configuration saved. Run 'codewiki' to generate documentation.");
+        println!("Configuration saved. Run 'wikigen' to generate documentation.");
         return;
     }
 
     let cfg = config::load_config().unwrap_or_else(|e| {
         eprintln!("Error loading config: {e}");
-        eprintln!("Run 'codewiki --init' first to configure.");
+        eprintln!("Run 'wikigen --init' first to configure.");
         std::process::exit(1);
     });
 
@@ -52,13 +52,13 @@ async fn main() {
         eprintln!("Error getting current directory: {e}");
         std::process::exit(1);
     });
-    let codewiki_dir = project_dir.join("codewiki");
+    let wikigen_dir = project_dir.join("wikigen");
 
-    if cli.update && codewiki_dir.exists() {
-        let mut wiki_meta = output::load_wiki_meta(&codewiki_dir);
+    if cli.update && wikigen_dir.exists() {
+        let mut wiki_meta = output::load_wiki_meta(&wikigen_dir);
         let provider = provider::create(&cfg);
         let result =
-            agent::update_docs(&project_dir, &codewiki_dir, &mut wiki_meta, &provider, &cfg).await;
+            agent::update_docs(&project_dir, &wikigen_dir, &mut wiki_meta, &provider, &cfg).await;
         match result {
             Ok(()) => println!("Documentation updated."),
             Err(e) => eprintln!("Update failed: {e}"),

@@ -13,7 +13,7 @@ pub struct Config {
 fn config_dir() -> PathBuf {
     dirs::home_dir()
         .expect("Could not find home directory")
-        .join(".codewiki")
+        .join(".wikigen")
 }
 
 fn env_path() -> PathBuf {
@@ -111,11 +111,11 @@ pub fn init_config() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let mut env_content = format!(
-        "CODWIKI_PROVIDER={}\nCODWIKI_API_KEY={}\nCODWIKI_MODEL={}\n",
+        "WIKIGEN_PROVIDER={}\nWIKIGEN_API_KEY={}\nWIKIGEN_MODEL={}\n",
         config.provider, config.api_key, config.model,
     );
     if let Some(ref url) = config.base_url {
-        env_content.push_str(&format!("CODWIKI_BASE_URL={url}\n"));
+        env_content.push_str(&format!("WIKIGEN_BASE_URL={url}\n"));
     }
 
     std::fs::write(env_path(), env_content)?;
@@ -126,7 +126,7 @@ pub fn init_config() -> Result<(), Box<dyn std::error::Error>> {
 pub fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
     let path = env_path();
     if !path.exists() {
-        return Err("No config found. Run 'codewiki --init' first.".into());
+        return Err("No config found. Run 'wikigen --init' first.".into());
     }
 
     let file = std::fs::File::open(&path)?;
@@ -138,19 +138,19 @@ pub fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
 
     for line in reader.lines() {
         let line = line?;
-        if let Some(val) = line.strip_prefix("CODWIKI_PROVIDER=") {
+        if let Some(val) = line.strip_prefix("WIKIGEN_PROVIDER=") {
             provider = val.to_string();
-        } else if let Some(val) = line.strip_prefix("CODWIKI_API_KEY=") {
+        } else if let Some(val) = line.strip_prefix("WIKIGEN_API_KEY=") {
             api_key = val.to_string();
-        } else if let Some(val) = line.strip_prefix("CODWIKI_MODEL=") {
+        } else if let Some(val) = line.strip_prefix("WIKIGEN_MODEL=") {
             model = val.to_string();
-        } else if let Some(val) = line.strip_prefix("CODWIKI_BASE_URL=") {
+        } else if let Some(val) = line.strip_prefix("WIKIGEN_BASE_URL=") {
             base_url = Some(val.to_string());
         }
     }
 
     if api_key.is_empty() && provider != "opencode" {
-        return Err("API key not found in config. Run 'codewiki --init' again.".into());
+        return Err("API key not found in config. Run 'wikigen --init' again.".into());
     }
 
     Ok(Config {
@@ -166,7 +166,7 @@ mod tests {
     use super::*;
 
     fn temp_env(content: &str) -> (std::path::PathBuf, impl FnOnce()) {
-        let dir = std::env::temp_dir().join(format!("codewiki_cfg_{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("cw_cfg_{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let env_file = dir.join("test.env");
         std::fs::write(&env_file, content).unwrap();
@@ -178,7 +178,7 @@ mod tests {
     #[test]
     fn load_config_parses_all_fields() {
         let (path, _cleanup) = temp_env(
-            "CODWIKI_PROVIDER=openai\nCODWIKI_API_KEY=sk-test\nCODWIKI_MODEL=gpt-4o\nCODWIKI_BASE_URL=https://example.com/v1\n",
+            "WIKIGEN_PROVIDER=openai\nWIKIGEN_API_KEY=sk-test\nWIKIGEN_MODEL=gpt-4o\nWIKIGEN_BASE_URL=https://example.com/v1\n",
         );
 
         // We can't easily override env_path() since it uses dirs::home_dir().
@@ -190,13 +190,13 @@ mod tests {
         let mut base_url = None;
 
         for line in content.lines() {
-            if let Some(val) = line.strip_prefix("CODWIKI_PROVIDER=") {
+            if let Some(val) = line.strip_prefix("WIKIGEN_PROVIDER=") {
                 provider = val.to_string();
-            } else if let Some(val) = line.strip_prefix("CODWIKI_API_KEY=") {
+            } else if let Some(val) = line.strip_prefix("WIKIGEN_API_KEY=") {
                 api_key = val.to_string();
-            } else if let Some(val) = line.strip_prefix("CODWIKI_MODEL=") {
+            } else if let Some(val) = line.strip_prefix("WIKIGEN_MODEL=") {
                 model = val.to_string();
-            } else if let Some(val) = line.strip_prefix("CODWIKI_BASE_URL=") {
+            } else if let Some(val) = line.strip_prefix("WIKIGEN_BASE_URL=") {
                 base_url = Some(val.to_string());
             }
         }
@@ -209,11 +209,11 @@ mod tests {
 
     #[test]
     fn load_config_missing_optional_base_url() {
-        let content = "CODWIKI_PROVIDER=anthropic\nCODWIKI_API_KEY=sk-key\nCODWIKI_MODEL=claude\n";
+        let content = "WIKIGEN_PROVIDER=anthropic\nWIKIGEN_API_KEY=sk-key\nWIKIGEN_MODEL=claude\n";
         let mut base_url: Option<String> = None;
 
         for line in content.lines() {
-            if let Some(val) = line.strip_prefix("CODWIKI_BASE_URL=") {
+            if let Some(val) = line.strip_prefix("WIKIGEN_BASE_URL=") {
                 base_url = Some(val.to_string());
             }
         }
