@@ -242,7 +242,7 @@ pub async fn run_interactive(
     ];
 
     let mut total_tool_calls = 0;
-    let max_tool_calls = 100;
+    let max_tool_calls = 500;
 
     loop {
         let msg = if total_tool_calls == 0 {
@@ -364,7 +364,7 @@ pub async fn run_oneshot(
     ];
 
     let mut total_tool_calls = 0;
-    let max_tool_calls = 100;
+    let max_tool_calls = 500;
     let mut final_output = String::new();
 
     loop {
@@ -433,7 +433,7 @@ pub async fn update_docs(
     ];
 
     let mut total_tool_calls = 0;
-    let max_tool_calls = 100;
+    let max_tool_calls = 500;
 
     loop {
         let msg = if total_tool_calls == 0 {
