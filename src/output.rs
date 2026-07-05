@@ -71,3 +71,95 @@ pub fn append_agents_reference(project_dir: &Path) -> Result<(), Box<dyn std::er
     std::fs::write(&agents_path, new_content)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+    fn temp_dir() -> (std::path::PathBuf, impl FnOnce()) {
+        let n = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let dir = std::env::temp_dir().join(format!("cw_out_{}_{}", std::process::id(), n));
+        std::fs::create_dir_all(&dir).unwrap();
+        let d = dir.clone();
+        (dir, move || {
+            let _ = std::fs::remove_dir_all(&d);
+        })
+    }
+
+    #[test]
+    fn write_doc_creates_file() {
+        let (dir, cleanup) = temp_dir();
+        let path = write_doc(&dir, "index.md", "# Hello");
+        assert!(path.exists());
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content, "# Hello");
+        cleanup();
+    }
+
+    #[test]
+    fn write_doc_creates_parent_dirs() {
+        let (dir, cleanup) = temp_dir();
+        let path = write_doc(&dir, "sub/deep/file.md", "content");
+        assert!(path.exists());
+        assert!(path.to_string_lossy().contains("sub/deep"));
+        cleanup();
+    }
+
+    #[test]
+    fn load_wiki_meta_empty_dir() {
+        let (dir, cleanup) = temp_dir();
+        let meta = load_wiki_meta(&dir);
+        assert!(meta.file_hashes.is_empty());
+        cleanup();
+    }
+
+    #[test]
+    fn save_and_load_wiki_meta_roundtrip() {
+        let (dir, cleanup) = temp_dir();
+        let mut meta = WikiMeta {
+            file_hashes: HashMap::new(),
+        };
+        meta.file_hashes.insert("index.md".into(), "abc123".into());
+
+        save_wiki_meta(&dir, &meta);
+        let loaded = load_wiki_meta(&dir);
+        assert_eq!(loaded.file_hashes.get("index.md").unwrap(), "abc123");
+        cleanup();
+    }
+
+    #[test]
+    fn append_agents_reference_creates_file() {
+        let (dir, cleanup) = temp_dir();
+        append_agents_reference(&dir).unwrap();
+        let content = std::fs::read_to_string(dir.join("AGENTS.md")).unwrap();
+        assert!(content.contains("codewiki:start"));
+        assert!(content.contains("codewiki --update"));
+        cleanup();
+    }
+
+    #[test]
+    fn append_agents_reference_idempotent() {
+        let (dir, cleanup) = temp_dir();
+        append_agents_reference(&dir).unwrap();
+        append_agents_reference(&dir).unwrap();
+        let content = std::fs::read_to_string(dir.join("AGENTS.md")).unwrap();
+        let count = content.matches("codewiki:start").count();
+        assert_eq!(count, 1);
+        cleanup();
+    }
+
+    #[test]
+    fn append_agents_reference_preserves_existing_content() {
+        let (dir, cleanup) = temp_dir();
+        std::fs::write(dir.join("AGENTS.md"), "# My Project\n").unwrap();
+        append_agents_reference(&dir).unwrap();
+        let content = std::fs::read_to_string(dir.join("AGENTS.md")).unwrap();
+        assert!(content.contains("# My Project"));
+        assert!(content.contains("codewiki:start"));
+        cleanup();
+    }
+}

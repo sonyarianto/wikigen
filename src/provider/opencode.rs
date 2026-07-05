@@ -158,7 +158,22 @@ fn extract_tool_calls(text: &str) -> Option<Vec<ToolCall>> {
 
         if let Some(start) = trimmed.find(r#"{"tool""#) {
             let slice = &trimmed[start..];
-            if let Some(end) = slice.find('}') {
+            let mut depth = 0;
+            let mut end = None;
+            for (i, ch) in slice.char_indices() {
+                match ch {
+                    '{' => depth += 1,
+                    '}' => {
+                        depth -= 1;
+                        if depth == 0 {
+                            end = Some(i);
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            if let Some(end) = end {
                 let candidate = &slice[..=end];
                 if let Ok(v) = serde_json::from_str::<Value>(candidate) {
                     if v.get("tool").and_then(|t| t.as_str()).is_some() && v.get("args").is_some() {
@@ -177,5 +192,75 @@ fn extract_tool_calls(text: &str) -> Option<Vec<ToolCall>> {
         None
     } else {
         Some(tool_calls)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_json_events_extracts_text() {
+        let stdout = r#"{"type":"text","timestamp":123,"part":{"type":"text","text":"Hello"}}
+{"type":"text","timestamp":124,"part":{"type":"text","text":" World"}}
+{"type":"step_finish","timestamp":125,"part":{"reason":"stop"}}"#;
+
+        let (text, tool_calls) = parse_opencode_output(stdout);
+        assert_eq!(text, "Hello World");
+        assert!(tool_calls.is_none());
+    }
+
+    #[test]
+    fn parse_ignores_non_text_events() {
+        let stdout = r#"{"type":"step_start","timestamp":1}
+{"type":"text","timestamp":2,"part":{"type":"text","text":"result"}}
+{"type":"step_finish","timestamp":3}"#;
+
+        let (text, _) = parse_opencode_output(stdout);
+        assert_eq!(text, "result");
+    }
+
+    #[test]
+    fn parse_empty_output() {
+        let (text, tool_calls) = parse_opencode_output("");
+        assert!(text.is_empty());
+        assert!(tool_calls.is_none());
+    }
+
+    #[test]
+    fn extract_tool_calls_clean_json() {
+        let text = r#"{"tool":"list_files","args":{"path":""}}"#;
+        let calls = extract_tool_calls(text).unwrap();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].name, "list_files");
+        assert_eq!(calls[0].arguments, r#"{"path":""}"#);
+    }
+
+    #[test]
+    fn extract_tool_calls_embedded_in_text() {
+        let text = r#"I'll search for that. {"tool":"search","args":{"pattern":"main"}}"#;
+        let calls = extract_tool_calls(text).unwrap();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].name, "search");
+    }
+
+    #[test]
+    fn extract_tool_calls_no_tools_returns_none() {
+        let text = "Here is some documentation. No tool calls here.";
+        assert!(extract_tool_calls(text).is_none());
+    }
+
+    #[test]
+    fn extract_tool_calls_inside_code_block_ignored() {
+        let text = "```\n{\"tool\":\"list_files\",\"args\":{\"path\":\"\"}}\n```\nReal response.";
+        assert!(extract_tool_calls(text).is_none());
+    }
+
+    #[test]
+    fn extract_tool_calls_multiple_tools() {
+        let text = r#"{"tool":"read_file","args":{"path":"a.rs"}}
+{"tool":"read_file","args":{"path":"b.rs"}}"#;
+        let calls = extract_tool_calls(text).unwrap();
+        assert_eq!(calls.len(), 2);
     }
 }

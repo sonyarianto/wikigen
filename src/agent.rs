@@ -441,3 +441,183 @@ pub async fn update_docs(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+    fn temp_project() -> (std::path::PathBuf, impl FnOnce()) {
+        let n = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let dir = std::env::temp_dir().join(format!("cw_agent_{}_{}", std::process::id(), n));
+        std::fs::create_dir_all(&dir).unwrap();
+        let d = dir.clone();
+        (dir, move || {
+            let _ = std::fs::remove_dir_all(&d);
+        })
+    }
+
+    fn make_tool_call(name: &str, args: &str) -> ToolCall {
+        ToolCall {
+            id: "call_1".into(),
+            name: name.into(),
+            arguments: args.into(),
+        }
+    }
+
+    fn empty_meta() -> WikiMeta {
+        WikiMeta {
+            file_hashes: HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn execute_list_files_shows_files() {
+        let (proj, cleanup) = temp_project();
+        std::fs::write(proj.join("a.rs"), "fn main() {}").unwrap();
+        std::fs::write(proj.join("README.md"), "# Project").unwrap();
+
+        let codewiki = proj.join("codewiki");
+        std::fs::create_dir_all(&codewiki).unwrap();
+
+        let tc = make_tool_call("list_files", r#"{"path":""}"#);
+        let result = execute_tool(&tc, &proj, &codewiki, &mut empty_meta());
+        assert!(result.contains("a.rs"));
+        assert!(result.contains("README.md"));
+        cleanup();
+    }
+
+    #[test]
+    fn execute_list_files_subdirectory() {
+        let (proj, cleanup) = temp_project();
+        std::fs::create_dir_all(proj.join("sub")).unwrap();
+        std::fs::write(proj.join("sub/b.rs"), "fn bar() {}").unwrap();
+
+        let codewiki = proj.join("codewiki");
+        std::fs::create_dir_all(&codewiki).unwrap();
+
+        let tc = make_tool_call("list_files", r#"{"path":"sub"}"#);
+        let result = execute_tool(&tc, &proj, &codewiki, &mut empty_meta());
+        assert!(result.contains("b.rs"));
+        cleanup();
+    }
+
+    #[test]
+    fn execute_list_files_nonexistent_path() {
+        let (proj, cleanup) = temp_project();
+        let codewiki = proj.join("codewiki");
+        std::fs::create_dir_all(&codewiki).unwrap();
+
+        let tc = make_tool_call("list_files", r#"{"path":"noexist"}"#);
+        let result = execute_tool(&tc, &proj, &codewiki, &mut empty_meta());
+        assert!(result.contains("Error"));
+        cleanup();
+    }
+
+    #[test]
+    fn execute_read_file_returns_content() {
+        let (proj, cleanup) = temp_project();
+        std::fs::write(proj.join("hello.txt"), "hello world\n").unwrap();
+        let codewiki = proj.join("codewiki");
+        std::fs::create_dir_all(&codewiki).unwrap();
+
+        let tc = make_tool_call("read_file", r#"{"path":"hello.txt"}"#);
+        let result = execute_tool(&tc, &proj, &codewiki, &mut empty_meta());
+        assert!(result.contains("hello world"));
+        cleanup();
+    }
+
+    #[test]
+    fn execute_read_file_empty_path() {
+        let (proj, cleanup) = temp_project();
+        let codewiki = proj.join("codewiki");
+        std::fs::create_dir_all(&codewiki).unwrap();
+
+        let tc = make_tool_call("read_file", r#"{"path":""}"#);
+        let result = execute_tool(&tc, &proj, &codewiki, &mut empty_meta());
+        assert!(result.contains("Error"));
+        cleanup();
+    }
+
+    #[test]
+    fn execute_search_finds_pattern() {
+        let (proj, cleanup) = temp_project();
+        std::fs::write(proj.join("src.rs"), "fn search_me() {\n    do_thing();\n}").unwrap();
+        let codewiki = proj.join("codewiki");
+        std::fs::create_dir_all(&codewiki).unwrap();
+
+        let tc = make_tool_call("search", r#"{"pattern":"search_me"}"#);
+        let result = execute_tool(&tc, &proj, &codewiki, &mut empty_meta());
+        assert!(result.contains("search_me"));
+        cleanup();
+    }
+
+    #[test]
+    fn execute_search_no_match() {
+        let (proj, cleanup) = temp_project();
+        std::fs::write(proj.join("src.rs"), "fn x() {}").unwrap();
+        let codewiki = proj.join("codewiki");
+        std::fs::create_dir_all(&codewiki).unwrap();
+
+        let tc = make_tool_call("search", r#"{"pattern":"nonexistent"}"#);
+        let result = execute_tool(&tc, &proj, &codewiki, &mut empty_meta());
+        assert!(result.contains("No matches"));
+        cleanup();
+    }
+
+    #[test]
+    fn execute_write_doc_creates_file() {
+        let (proj, cleanup) = temp_project();
+        let codewiki = proj.join("codewiki");
+        std::fs::create_dir_all(&codewiki).unwrap();
+
+        let tc = make_tool_call(
+            "write_doc",
+            r##"{"path":"test.md","content":"# Test Doc"}"##,
+        );
+        let mut meta = empty_meta();
+        let result = execute_tool(&tc, &proj, &codewiki, &mut meta);
+        assert!(result.contains("Documentation written"));
+        assert!(codewiki.join("test.md").exists());
+        assert!(meta.file_hashes.contains_key("test.md"));
+        cleanup();
+    }
+
+    #[test]
+    fn execute_write_doc_empty_path() {
+        let (proj, cleanup) = temp_project();
+        let codewiki = proj.join("codewiki");
+        std::fs::create_dir_all(&codewiki).unwrap();
+
+        let tc = make_tool_call("write_doc", r#"{"path":"","content":"x"}"#);
+        let result = execute_tool(&tc, &proj, &codewiki, &mut empty_meta());
+        assert!(result.contains("Error"));
+        cleanup();
+    }
+
+    #[test]
+    fn execute_unknown_tool() {
+        let (proj, cleanup) = temp_project();
+        let codewiki = proj.join("codewiki");
+        std::fs::create_dir_all(&codewiki).unwrap();
+
+        let tc = make_tool_call("nonexistent_tool", "{}");
+        let result = execute_tool(&tc, &proj, &codewiki, &mut empty_meta());
+        assert!(result.contains("Unknown tool"));
+        cleanup();
+    }
+
+    #[test]
+    fn tool_definitions_include_all_four() {
+        let defs = tool_definitions();
+        assert_eq!(defs.len(), 4);
+        let names: Vec<&str> = defs.iter().map(|d| d.name.as_str()).collect();
+        assert!(names.contains(&"list_files"));
+        assert!(names.contains(&"read_file"));
+        assert!(names.contains(&"search"));
+        assert!(names.contains(&"write_doc"));
+    }
+}

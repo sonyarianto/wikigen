@@ -37,3 +37,31 @@ pub fn initial_prompt(prompt: &str) -> String {
 pub fn tool_response_prompt() -> &'static str {
     "The tool result is shown above. What would you like to do next? Continue exploring and documenting, or signal DONE if finished."
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn initial_prompt_includes_user_input() {
+        let prompt = initial_prompt("Generate docs for this repo");
+        assert!(prompt.contains("Generate docs for this repo"));
+        assert!(prompt.contains("list_files"));
+    }
+
+    #[test]
+    fn system_prompt_includes_tool_descriptions() {
+        assert!(SYSTEM_PROMPT.contains("list_files"));
+        assert!(SYSTEM_PROMPT.contains("read_file"));
+        assert!(SYSTEM_PROMPT.contains("search"));
+        assert!(SYSTEM_PROMPT.contains("write_doc"));
+        assert!(SYSTEM_PROMPT.contains("DONE"));
+    }
+
+    #[test]
+    fn tool_response_prompt_mentions_continue() {
+        let p = tool_response_prompt();
+        assert!(p.contains("Continue"));
+        assert!(p.contains("DONE"));
+    }
+}

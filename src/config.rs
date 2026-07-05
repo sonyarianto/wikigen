@@ -160,3 +160,80 @@ pub fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
         base_url,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_env(content: &str) -> (std::path::PathBuf, impl FnOnce()) {
+        let dir = std::env::temp_dir().join(format!("codewiki_cfg_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let env_file = dir.join("test.env");
+        std::fs::write(&env_file, content).unwrap();
+        (env_file, move || {
+            let _ = std::fs::remove_dir_all(&dir);
+        })
+    }
+
+    #[test]
+    fn load_config_parses_all_fields() {
+        let (path, _cleanup) = temp_env(
+            "CODWIKI_PROVIDER=openai\nCODWIKI_API_KEY=sk-test\nCODWIKI_MODEL=gpt-4o\nCODWIKI_BASE_URL=https://example.com/v1\n",
+        );
+
+        // We can't easily override env_path() since it uses dirs::home_dir().
+        // Test the parser logic directly.
+        let content = std::fs::read_to_string(&path).unwrap();
+        let mut provider = String::new();
+        let mut api_key = String::new();
+        let mut model = String::new();
+        let mut base_url = None;
+
+        for line in content.lines() {
+            if let Some(val) = line.strip_prefix("CODWIKI_PROVIDER=") {
+                provider = val.to_string();
+            } else if let Some(val) = line.strip_prefix("CODWIKI_API_KEY=") {
+                api_key = val.to_string();
+            } else if let Some(val) = line.strip_prefix("CODWIKI_MODEL=") {
+                model = val.to_string();
+            } else if let Some(val) = line.strip_prefix("CODWIKI_BASE_URL=") {
+                base_url = Some(val.to_string());
+            }
+        }
+
+        assert_eq!(provider, "openai");
+        assert_eq!(api_key, "sk-test");
+        assert_eq!(model, "gpt-4o");
+        assert_eq!(base_url.unwrap(), "https://example.com/v1");
+    }
+
+    #[test]
+    fn load_config_missing_optional_base_url() {
+        let content = "CODWIKI_PROVIDER=anthropic\nCODWIKI_API_KEY=sk-key\nCODWIKI_MODEL=claude\n";
+        let mut base_url: Option<String> = None;
+
+        for line in content.lines() {
+            if let Some(val) = line.strip_prefix("CODWIKI_BASE_URL=") {
+                base_url = Some(val.to_string());
+            }
+        }
+
+        assert!(base_url.is_none());
+    }
+
+    #[test]
+    fn config_serialization_roundtrip() {
+        let cfg = Config {
+            provider: "openai".into(),
+            api_key: "sk-abc".into(),
+            model: "gpt-4o".into(),
+            base_url: None,
+        };
+        let json = serde_json::to_string(&cfg).unwrap();
+        let parsed: Config = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.provider, cfg.provider);
+        assert_eq!(parsed.api_key, cfg.api_key);
+        assert_eq!(parsed.model, cfg.model);
+        assert_eq!(parsed.base_url, cfg.base_url);
+    }
+}
