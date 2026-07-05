@@ -241,16 +241,16 @@ pub async fn run_interactive(
         },
     ];
 
-    let mut total_tool_calls = 0;
-    let max_tool_calls = 500;
+    let mut is_first = true;
 
     loop {
-        let msg = if total_tool_calls == 0 {
+        let msg = if is_first {
             "Generating documentation..."
         } else {
             "Thinking..."
         };
         let resp = chat_with_spinner(provider, &messages, &tools, msg).await?;
+        is_first = false;
 
         if let Some(tool_calls) = resp.tool_calls {
             if tool_calls.is_empty() {
@@ -278,16 +278,6 @@ pub async fn run_interactive(
                     role: "tool".into(),
                     content: result,
                 });
-
-                total_tool_calls += 1;
-
-                if total_tool_calls >= max_tool_calls {
-                    println!(
-                        "\nReached maximum tool calls ({}). Stopping.",
-                        max_tool_calls
-                    );
-                    break;
-                }
             }
 
             messages.push(ChatMessage {
@@ -363,17 +353,17 @@ pub async fn run_oneshot(
         },
     ];
 
-    let mut total_tool_calls = 0;
-    let max_tool_calls = 500;
+    let mut is_first = true;
     let mut final_output = String::new();
 
     loop {
-        let msg = if total_tool_calls == 0 {
+        let msg = if is_first {
             "Generating documentation..."
         } else {
             "Thinking..."
         };
         let resp = chat_with_spinner(provider, &messages, &tools, msg).await?;
+        is_first = false;
 
         if let Some(tool_calls) = resp.tool_calls {
             if tool_calls.is_empty() {
@@ -393,10 +383,6 @@ pub async fn run_oneshot(
                     role: "tool".into(),
                     content: result,
                 });
-                total_tool_calls += 1;
-                if total_tool_calls >= max_tool_calls {
-                    break;
-                }
             }
 
             messages.push(ChatMessage {
@@ -432,16 +418,16 @@ pub async fn update_docs(
         },
     ];
 
-    let mut total_tool_calls = 0;
-    let max_tool_calls = 500;
+    let mut is_first = true;
 
     loop {
-        let msg = if total_tool_calls == 0 {
+        let msg = if is_first {
             "Updating documentation..."
         } else {
             "Thinking..."
         };
         let resp = chat_with_spinner(provider, &messages, &tools, msg).await?;
+        is_first = false;
 
         if let Some(tool_calls) = resp.tool_calls {
             if tool_calls.is_empty() {
@@ -463,10 +449,6 @@ pub async fn update_docs(
                     role: "tool".into(),
                     content: result,
                 });
-                total_tool_calls += 1;
-                if total_tool_calls >= max_tool_calls {
-                    break;
-                }
             }
 
             messages.push(ChatMessage {
