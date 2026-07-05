@@ -1,6 +1,7 @@
 use crate::config::Config;
 use serde_json::Value;
 use std::process::Stdio;
+use std::time::Duration;
 
 use super::{ChatMessage, ChatResponse, ToolCall, ToolDef};
 
@@ -70,7 +71,12 @@ impl OpencodeProvider {
             cmd.arg("--model").arg(&self.model_override);
         }
 
-        let output = tokio::task::spawn_blocking(move || cmd.output()).await??;
+        let output = tokio::time::timeout(
+            Duration::from_secs(120),
+            tokio::task::spawn_blocking(move || cmd.output()),
+        )
+        .await
+        .map_err(|_| "opencode timed out after 120 seconds")???;
 
         if !output.status.success() {
             return Err(format!("opencode exited with status: {}", output.status).into());

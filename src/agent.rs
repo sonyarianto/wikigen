@@ -1,10 +1,13 @@
 use std::collections::HashMap;
 use std::path::Path;
+use std::time::Duration;
+
+use indicatif::{ProgressBar, ProgressStyle};
 
 use crate::config::Config;
 use crate::output::{self, WikiMeta};
 use crate::prompts;
-use crate::provider::{ChatMessage, LlmProvider, ToolCall, ToolDef};
+use crate::provider::{ChatMessage, ChatResponse, LlmProvider, ToolCall, ToolDef};
 use crate::scanner;
 
 fn tool_definitions() -> Vec<ToolDef> {
@@ -192,6 +195,26 @@ fn execute_tool(
     }
 }
 
+async fn chat_with_spinner(
+    provider: &LlmProvider,
+    messages: &[ChatMessage],
+    tools: &[ToolDef],
+    msg: &str,
+) -> Result<ChatResponse, Box<dyn std::error::Error>> {
+    let spinner = ProgressBar::new_spinner();
+    spinner.set_style(
+        ProgressStyle::with_template("{spinner:.green} {msg}")
+            .unwrap()
+            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
+    );
+    spinner.set_message(msg.to_string());
+    spinner.enable_steady_tick(Duration::from_millis(100));
+
+    let result = provider.chat(messages, tools).await;
+    spinner.finish_and_clear();
+    result
+}
+
 pub async fn run_interactive(
     project_dir: &Path,
     provider: &LlmProvider,
@@ -222,7 +245,12 @@ pub async fn run_interactive(
     let max_tool_calls = 100;
 
     loop {
-        let resp = provider.chat(&messages, &tools).await?;
+        let msg = if total_tool_calls == 0 {
+            "Generating documentation..."
+        } else {
+            "Thinking..."
+        };
+        let resp = chat_with_spinner(provider, &messages, &tools, msg).await?;
 
         if let Some(tool_calls) = resp.tool_calls {
             if tool_calls.is_empty() {
@@ -340,7 +368,12 @@ pub async fn run_oneshot(
     let mut final_output = String::new();
 
     loop {
-        let resp = provider.chat(&messages, &tools).await?;
+        let msg = if total_tool_calls == 0 {
+            "Generating documentation..."
+        } else {
+            "Thinking..."
+        };
+        let resp = chat_with_spinner(provider, &messages, &tools, msg).await?;
 
         if let Some(tool_calls) = resp.tool_calls {
             if tool_calls.is_empty() {
@@ -354,6 +387,7 @@ pub async fn run_oneshot(
             });
 
             for tc in &tool_calls {
+                println!("  -> {}", tc.name);
                 let result = execute_tool(tc, project_dir, &wakawiki_dir, &mut wiki_meta);
                 messages.push(ChatMessage {
                     role: "tool".into(),
@@ -402,7 +436,12 @@ pub async fn update_docs(
     let max_tool_calls = 100;
 
     loop {
-        let resp = provider.chat(&messages, &tools).await?;
+        let msg = if total_tool_calls == 0 {
+            "Updating documentation..."
+        } else {
+            "Thinking..."
+        };
+        let resp = chat_with_spinner(provider, &messages, &tools, msg).await?;
 
         if let Some(tool_calls) = resp.tool_calls {
             if tool_calls.is_empty() {
@@ -418,6 +457,7 @@ pub async fn update_docs(
             });
 
             for tc in &tool_calls {
+                println!("  -> {}", tc.name);
                 let result = execute_tool(tc, project_dir, wakawiki_dir, wiki_meta);
                 messages.push(ChatMessage {
                     role: "tool".into(),

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::config::Config;
 use serde_json::Value;
 
@@ -12,7 +14,10 @@ pub struct AnthropicProvider {
 impl AnthropicProvider {
     pub fn new(cfg: &Config) -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .timeout(Duration::from_secs(120))
+                .build()
+                .expect("Failed to build HTTP client"),
             api_key: cfg.api_key.clone(),
             model: cfg.model.clone(),
         }

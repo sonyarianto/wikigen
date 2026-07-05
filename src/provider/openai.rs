@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::config::Config;
 use serde_json::Value;
 
@@ -17,7 +19,10 @@ impl OpenAiProvider {
             .clone()
             .unwrap_or_else(|| "https://api.openai.com/v1".into());
         Self {
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .timeout(Duration::from_secs(120))
+                .build()
+                .expect("Failed to build HTTP client"),
             api_key: cfg.api_key.clone(),
             model: cfg.model.clone(),
             base_url,
@@ -26,7 +31,10 @@ impl OpenAiProvider {
 
     pub fn with_base_url(cfg: &Config, base_url: &str) -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .timeout(Duration::from_secs(120))
+                .build()
+                .expect("Failed to build HTTP client"),
             api_key: cfg.api_key.clone(),
             model: cfg.model.clone(),
             base_url: base_url.into(),
